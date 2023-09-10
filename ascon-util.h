@@ -28,4 +28,9 @@ std::string ascon_block64_to_string(uint64_t block, uint16_t count = 8);
 
 std::vector<uint8_t> ascon_block64_to_byte_vector(uint64_t block, uint16_t count = 8);
 
+template<class T>
+inline void append_vector(std::vector<T> &des, const std::vector<T> &src) {
+    des.insert(des.end(), src.begin(), src.end());
+}
+
 #endif //ASCON_ASCON_UTIL_H

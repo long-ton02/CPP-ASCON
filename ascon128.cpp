@@ -5,6 +5,7 @@ ascon_encrypted_t ascon128_encrypt(std::array<uint32_t, 4> key, std::array<uint3
     static constexpr uint16_t A = 12, B = 6;
     std::array<uint64_t, 5> state{};
     ascon_encrypted_t ret;
+    ret.ciphertext.reserve(plaintext.length());
 
     //initialization
     ascon_set_init_state(state, 0x80400c0600000000, key, nonce);
@@ -28,12 +29,10 @@ ascon_encrypted_t ascon128_encrypt(std::array<uint32_t, 4> key, std::array<uint3
     for (auto i: blocks) {
         state[0] ^= i;
         if (i != blocks.back()) {
-            auto tmp = ascon_block64_to_byte_vector(state[0]);
-            ret.ciphertext.insert(ret.ciphertext.end(), tmp.begin(), tmp.end());
+            append_vector(ret.ciphertext, ascon_block64_to_byte_vector(state[0]));
             ascon_permutation(state, B);
         } else {
-            auto tmp = ascon_block64_to_byte_vector(state[0], plaintext.length() % 8);
-            ret.ciphertext.insert(ret.ciphertext.end(), tmp.begin(), tmp.end());
+            append_vector(ret.ciphertext, ascon_block64_to_byte_vector(state[0], plaintext.length() % 8));
         }
     }
 
@@ -55,6 +54,7 @@ ascon128_decrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce, con
     static constexpr uint16_t A = 12, B = 6;
     std::array<uint64_t, 5> state{};
     std::string ret;
+    ret.reserve(msg.ciphertext.size());
 
     //initialization
     ascon_set_init_state(state, 0x80400c0600000000, key, nonce);

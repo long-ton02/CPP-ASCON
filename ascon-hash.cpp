@@ -14,8 +14,7 @@ std::vector<uint8_t> hashing(const std::string &s, const uint64_t &nbytes, std::
 
     //squeeze
     for (uint64_t i = 0; i < nbytes; i += 8) {
-        auto tmp = ascon_block64_to_byte_vector(state[0], (i + 7 < nbytes) ? 8 : nbytes % 8);
-        ret.insert(ret.end(), tmp.begin(), tmp.end());
+        append_vector(ret, ascon_block64_to_byte_vector(state[0], (i + 7 < nbytes) ? 8 : nbytes % 8));
         ascon_permutation(state, A);
     }
 
