@@ -69,6 +69,7 @@ void ascon_set_init_state(std::array<uint64_t, 5> &state, const uint32_t &iv, co
 
 std::vector<uint64_t> ascon_plaintext_to_block64(const std::string &s) {
     std::vector<uint64_t> ret;
+    ret.reserve((s.length() + 7) / 8);
     for (auto i = 0; i <= s.length(); i += 8) {
         uint64_t block = 0;
         for (auto j = 0; j < 8; ++j) {
@@ -83,6 +84,7 @@ std::vector<uint64_t> ascon_plaintext_to_block64(const std::string &s) {
 
 std::vector<uint64_t> ascon_ciphertext_to_block64(const std::vector<uint8_t> &s) {
     std::vector<uint64_t> ret;
+    ret.reserve((s.size() + 7) / 8);
     for (auto i = 0; i <= s.size(); i += 8) {
         uint64_t block = 0;
         for (auto j = 0; j < 8; ++j) {
