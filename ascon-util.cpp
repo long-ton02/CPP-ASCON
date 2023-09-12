@@ -95,17 +95,18 @@ std::vector<uint64_t> ascon_ciphertext_to_block64(const std::vector<uint8_t> &s)
     return ret;
 }
 
-std::string ascon_block64_to_string(uint64_t block, uint16_t count) {
+std::string ascon_block64_to_string(const uint64_t &block, const uint16_t &count) {
     if (count > 8) throw std::out_of_range("Argument \"count\" exceed 8");
 
     std::string ret;
+    ret.reserve(count);
     for (uint16_t j = 0; j < count; ++j) {
         ret.push_back((char) get_byte(block, j));
     }
     return ret;
 }
 
-std::vector<uint8_t> ascon_block64_to_byte_vector(uint64_t block, uint16_t count) {
+std::vector<uint8_t> ascon_block64_to_byte_vector(const uint64_t &block, const uint16_t &count) {
     if (count > 8) throw std::out_of_range("Argument \"count\" exceed 8");
 
     std::vector<uint8_t> ret;

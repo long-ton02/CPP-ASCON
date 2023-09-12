@@ -24,9 +24,9 @@ std::vector<uint64_t> ascon_plaintext_to_block64(const std::string &s);
 
 std::vector<uint64_t> ascon_ciphertext_to_block64(const std::vector<uint8_t> &s);
 
-std::string ascon_block64_to_string(uint64_t block, uint16_t count = 8);
+std::string ascon_block64_to_string(const uint64_t &block, const uint16_t &count = 8);
 
-std::vector<uint8_t> ascon_block64_to_byte_vector(uint64_t block, uint16_t count = 8);
+std::vector<uint8_t> ascon_block64_to_byte_vector(const uint64_t &block, const uint16_t &count = 8);
 
 template<class T>
 inline void append_vector(std::vector<T> &des, const std::vector<T> &src) {

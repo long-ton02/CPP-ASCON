@@ -1,6 +1,6 @@
 #include "ascon128.h"
 
-ascon_encrypted_t ascon128_encrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce,
+ascon_encrypted_t ascon128_encrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
                                    const std::string &asso_data, const std::string &plaintext) {
     static constexpr uint16_t A = 12, B = 6;
     std::array<uint64_t, 5> state{};
@@ -26,9 +26,9 @@ ascon_encrypted_t ascon128_encrypt(std::array<uint32_t, 4> key, std::array<uint3
 
     //process plaintext
     auto blocks = ascon_plaintext_to_block64(plaintext);
-    for (auto i: blocks) {
-        state[0] ^= i;
-        if (i != blocks.back()) {
+    for (auto it = blocks.begin(); it != blocks.end(); ++it) {
+        state[0] ^= *it;
+        if (it + 1 != blocks.end()) {
             append_vector(ret.ciphertext, ascon_block64_to_byte_vector(state[0]));
             ascon_permutation(state, B);
         } else {
@@ -49,8 +49,8 @@ ascon_encrypted_t ascon128_encrypt(std::array<uint32_t, 4> key, std::array<uint3
 }
 
 std::optional<std::string>
-ascon128_decrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce, const std::string &asso_data,
-                 const ascon_encrypted_t &msg) {
+ascon128_decrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+                 const std::string &asso_data, const ascon_encrypted_t &msg) {
     static constexpr uint16_t A = 12, B = 6;
     std::array<uint64_t, 5> state{};
     std::string ret;
@@ -75,11 +75,11 @@ ascon128_decrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce, con
 
     //process ciphertext
     auto blocks = ascon_ciphertext_to_block64(msg.ciphertext);
-    for (auto i: blocks) {
-        uint64_t p = state[0] ^ i;
-        if (i != blocks.back()) {
+    for (auto it = blocks.begin(); it != blocks.end(); ++it) {
+        uint64_t p = state[0] ^ *it;
+        if (it + 1 != blocks.end()) {
             ret += ascon_block64_to_string(p);
-            state[0] = i;
+            state[0] = *it;
             ascon_permutation(state, B);
         } else {
             auto last_block_size = msg.ciphertext.size() % 8;

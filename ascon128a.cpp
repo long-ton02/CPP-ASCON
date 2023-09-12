@@ -1,8 +1,8 @@
 #include "ascon128a.h"
 
 ascon_encrypted_t
-ascon128a_encrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce, const std::string &asso_data,
-                  const std::string &plaintext) {
+ascon128a_encrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+                  const std::string &asso_data, const std::string &plaintext) {
     static constexpr uint16_t A = 12, B = 8;
     std::array<uint64_t, 5> state{};
     ascon_encrypted_t ret;
@@ -59,8 +59,8 @@ ascon128a_encrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce, co
 }
 
 std::optional<std::string>
-ascon128a_decrypt(std::array<uint32_t, 4> key, std::array<uint32_t, 4> nonce, const std::string &asso_data,
-                  const ascon_encrypted_t &msg) {
+ascon128a_decrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+                  const std::string &asso_data, const ascon_encrypted_t &msg) {
     static constexpr uint16_t A = 12, B = 8;
     std::array<uint64_t, 5> state{};
     std::string ret;
