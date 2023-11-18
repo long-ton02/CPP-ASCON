@@ -5,10 +5,10 @@
 
 #include "ascon-util.h"
 
-ascon_encrypted_t ascon128_encrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+ascon_encrypted_t ascon128_encrypt(const ascon_key128_t &key, const ascon_nonce_t &nonce,
                                    const std::string &asso_data, const std::string &plaintext);
 
-std::optional<std::string> ascon128_decrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+std::optional<std::string> ascon128_decrypt(const ascon_key128_t &key, const ascon_nonce_t &nonce,
                                             const std::string &asso_data, const ascon_encrypted_t &msg);
 
 #endif //ASCON_ASCON128_H

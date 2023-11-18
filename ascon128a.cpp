@@ -1,10 +1,10 @@
 #include "ascon128a.h"
 
 ascon_encrypted_t
-ascon128a_encrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+ascon128a_encrypt(const ascon_key128_t &key, const ascon_nonce_t &nonce,
                   const std::string &asso_data, const std::string &plaintext) {
     static constexpr uint16_t A = 12, B = 8;
-    std::array<uint64_t, 5> state{};
+    ascon_state_t state{};
     ascon_encrypted_t ret;
     ret.ciphertext.reserve(plaintext.length());
 
@@ -59,10 +59,10 @@ ascon128a_encrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t,
 }
 
 std::optional<std::string>
-ascon128a_decrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce,
+ascon128a_decrypt(const ascon_key128_t &key, const ascon_nonce_t &nonce,
                   const std::string &asso_data, const ascon_encrypted_t &msg) {
     static constexpr uint16_t A = 12, B = 8;
-    std::array<uint64_t, 5> state{};
+    ascon_state_t state{};
     std::string ret;
     ret.reserve(msg.ciphertext.size());
 
@@ -113,7 +113,7 @@ ascon128a_decrypt(const std::array<uint32_t, 4> &key, const std::array<uint32_t,
     state[3] ^= (uint64_t) key[2] << 32 | (uint64_t) key[3];
     ascon_permutation(state, A);
 
-    std::array<uint64_t, 2> tag = {state[3] ^ ((uint64_t) key[0] << 32 | (uint64_t) key[1]),
+    ascon_tag_t tag = {state[3] ^ ((uint64_t) key[0] << 32 | (uint64_t) key[1]),
                                    state[4] ^ ((uint64_t) key[2] << 32 | (uint64_t) key[3])};
 
     //return

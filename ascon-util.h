@@ -7,18 +7,24 @@
 #include <string>
 #include <stdexcept>
 
+typedef std::array<uint64_t, 5> ascon_state_t;
+typedef std::array<uint32_t, 4> ascon_key128_t;
+typedef std::array<uint32_t, 5> ascon_key160_t;
+typedef std::array<uint32_t, 4> ascon_nonce_t;
+typedef std::array<uint64_t, 2> ascon_tag_t;
+
 struct ascon_encrypted_t {
     std::vector<uint8_t> ciphertext;
-    std::array<uint64_t, 2> tag;
+    ascon_tag_t tag;
 };
 
-void ascon_set_init_state(std::array<uint64_t, 5> &state, const uint64_t &iv,
-                          const std::array<uint32_t, 4> &key, const std::array<uint32_t, 4> &nonce);
+void ascon_set_init_state(ascon_state_t &state, const uint64_t &iv,
+                          const ascon_key128_t &key, const ascon_nonce_t &nonce);
 
-void ascon_set_init_state(std::array<uint64_t, 5> &state, const uint32_t &iv,
-                          const std::array<uint32_t, 5> &key, const std::array<uint32_t, 4> &nonce);
+void ascon_set_init_state(ascon_state_t &state, const uint32_t &iv,
+                          const ascon_key160_t &key, const ascon_nonce_t &nonce);
 
-void ascon_permutation(std::array<uint64_t, 5> &state, uint16_t rounds);
+void ascon_permutation(ascon_state_t &state, uint16_t rounds);
 
 std::vector<uint64_t> ascon_plaintext_to_block64(const std::string &s);
 

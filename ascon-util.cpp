@@ -11,7 +11,7 @@ constexpr uint8_t get_byte(uint64_t n, uint16_t r) {
     return (n >> (8 * (7 - r))) & 0xFF;
 }
 
-void ascon_permutation(std::array<uint64_t, 5> &state, uint16_t rounds) {
+void ascon_permutation(ascon_state_t &state, uint16_t rounds) {
     std::array<uint64_t, 5> t{};
 
     while (rounds) {
@@ -49,8 +49,8 @@ void ascon_permutation(std::array<uint64_t, 5> &state, uint16_t rounds) {
     }
 }
 
-void ascon_set_init_state(std::array<uint64_t, 5> &state, const uint64_t &iv, const std::array<uint32_t, 4> &key,
-                          const std::array<uint32_t, 4> &nonce) {
+void ascon_set_init_state(ascon_state_t &state, const uint64_t &iv,
+                          const ascon_key128_t &key, const ascon_nonce_t &nonce) {
     state[0] = iv;
     state[1] = (uint64_t) key[0] << 32 | (uint64_t) key[1];
     state[2] = (uint64_t) key[2] << 32 | (uint64_t) key[3];
@@ -58,8 +58,8 @@ void ascon_set_init_state(std::array<uint64_t, 5> &state, const uint64_t &iv, co
     state[4] = (uint64_t) nonce[2] << 32 | (uint64_t) nonce[3];
 }
 
-void ascon_set_init_state(std::array<uint64_t, 5> &state, const uint32_t &iv, const std::array<uint32_t, 5> &key,
-                          const std::array<uint32_t, 4> &nonce) {
+void ascon_set_init_state(ascon_state_t &state, const uint32_t &iv,
+                          const ascon_key160_t &key, const ascon_nonce_t &nonce) {
     state[0] = (uint64_t) iv << 32 | (uint64_t) key[0];
     state[1] = (uint64_t) key[1] << 32 | (uint64_t) key[2];
     state[2] = (uint64_t) key[3] << 32 | (uint64_t) key[4];

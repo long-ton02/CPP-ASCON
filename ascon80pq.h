@@ -5,10 +5,10 @@
 
 #include "ascon-util.h"
 
-ascon_encrypted_t ascon80pq_encrypt(const std::array<uint32_t, 5> &key, const std::array<uint32_t, 4> &nonce,
+ascon_encrypted_t ascon80pq_encrypt(const ascon_key160_t &key, const ascon_nonce_t &nonce,
                                     const std::string &asso_data, const std::string &plaintext);
 
-std::optional<std::string> ascon80pq_decrypt(const std::array<uint32_t, 5> &key, const std::array<uint32_t, 4> &nonce,
+std::optional<std::string> ascon80pq_decrypt(const ascon_key160_t &key, const ascon_nonce_t &nonce,
                                              const std::string &asso_data, const ascon_encrypted_t &msg);
 
 #endif //ASCON_ASCON80PQ_H
