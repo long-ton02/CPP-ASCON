@@ -2,6 +2,7 @@
 
 std::vector<uint8_t> hashing(const std::string &s, const uint64_t &nbytes, ascon_state_t state) {
     static constexpr uint16_t A = 12;
+    static constexpr uint16_t B = 12;
     std::vector<uint8_t> ret;
     ret.reserve(nbytes);
 
@@ -9,13 +10,14 @@ std::vector<uint8_t> hashing(const std::string &s, const uint64_t &nbytes, ascon
     auto blocks = ascon_plaintext_to_block64(s);
     for (auto i: blocks) {
         state[0] ^= i;
-        ascon_permutation(state, A);
+        ascon_permutation(state, B);
     }
 
     //squeeze
+    ascon_permutation(state, A);
     for (uint64_t i = 0; i < nbytes; i += 8) {
         append_vector(ret, ascon_block64_to_byte_vector(state[0], (i + 7 < nbytes) ? 8 : nbytes % 8));
-        ascon_permutation(state, A);
+        ascon_permutation(state, B);
     }
 
     //return
