@@ -8,9 +8,9 @@ std::vector<uint8_t> hashing_a(const std::string &s, const uint64_t &nbytes, asc
 
     //absorb message
     auto blocks = ascon_plaintext_to_block64(s);
-    for (auto i: blocks) {
-        state[0] ^= i;
-        ascon_permutation(state, B);
+    for (auto it = blocks.begin(); it != blocks.end(); ++it) {
+        state[0] ^= *it;
+        if (it + 1 != blocks.end()) ascon_permutation(state, B);
     }
 
     //squeeze
