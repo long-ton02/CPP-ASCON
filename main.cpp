@@ -1,125 +1,349 @@
 #include <iostream>
-#include <fstream>
 #include <iomanip>
-#include <chrono>
+#include <fstream>
+#include <iterator>
+#include <getopt.h>
+#include <map>
 #include "ascon.h"
 
-#define TEST_ENCDEC
+static const char* short_options = "edk:n:a:i:t:o:h";
+static struct option long_options[] = {
+        {"encrypt",         no_argument,        nullptr,'e'},
+        {"decrypt",         no_argument,        nullptr,'d'},
+        {"key",             required_argument,  nullptr,'k'},
+        {"nonce",           required_argument,  nullptr,'n'},
+        {"associated-data", required_argument,  nullptr,'a'},
+        {"input",           required_argument,  nullptr,'i'},
+        {"output",          required_argument,  nullptr,'o'},
+        {"tag",             required_argument,  nullptr,'t'},
+        {"help",            no_argument,        nullptr,'h'},
+        {nullptr,           0,                  nullptr,0}
+};
 
-static const std::string UNENCRYPTED_FILE = "li.txt";
-static const std::string ENCRYPTED_FILE = "li-encrypted.txt";
-static const std::string DECRYPTED_FILE = "li-decrypted.txt";
 
-#ifdef TEST_HASH
-
-int main() {
-    std::string str = "The quick brown fox jumps over the lazy dog.";
-    auto hash = ascon_hash(str);
-    for (auto it = hash.begin(); it != hash.end(); ++it) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0')
-                  << (uint32_t) *it << ((it + 1 != hash.end()) ? ':' : '\n');
-    }
-
-    return 0;
+void print_help() {
+    std::cout << "Usage:    ASCON\r\n"
+                 "          -e|-d|--encrypt|--decrypt\r\n"
+                 "          -k|--key                <key_path>\r\n"
+                 "          -n|--nonce              <nonce_path>\r\n"
+                 "          -a|--associated-data    <ad_path>\r\n"
+                 "          -t|--tag                <tag_path>\r\n"
+                 "          -i|--input              <input_path>\r\n"
+                 "          -o|--output             <output_path>\r\n";
 }
 
-#endif
+template <class T>
+typename std::enable_if<std::is_integral<T>::value,std::string>::type
+to_big_endian_array(T n){
+    std::string ret;
+    ret.reserve(sizeof(n));
+    for (auto i = 0; i < sizeof(n); ++i){
+        ret += (n >> ((sizeof(n) - 1 - i) * 8)) & 0xFF;
+    }
+    return ret;
+}
 
+void encrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
+             const std::string& p_path, const std::string& output_cipher_path, const std::string& output_tag_path){
+    // buffer
+    char buffer[4];
 
-#ifdef TEST_ENCDEC
+    // Read the plaintext from file
+    std::ifstream in_file(p_path, std::ios_base::binary);
+    if (!in_file.is_open()) {
+        std::cerr << "Error opening file: " << p_path << std::endl;
+        return;
+    }
 
-int main() {
-    std::fstream fs;
-    decltype(std::chrono::high_resolution_clock::now()) start, end;
+    std::string plaintext((std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>());
 
-    fs.open(UNENCRYPTED_FILE);
-    if (!fs.is_open()) return -1;
-    std::string plaintext((std::istreambuf_iterator<char>(fs)), std::istreambuf_iterator<char>());
-    fs.close();
+    in_file.close();
 
-    std::string associated_data;
-    ascon_key160_t key = {0xC3C3C3C3, 0xAAAA1337, 0x88111188, 0xDEADDEED, 0xBEEFCAFE};
-    ascon_nonce_t nonce = {0xA2052221, 0xA2052153, 0xFEDCBA98, 0x76543210};
+    // Get ad
+    std::ifstream ad_file(a_path, std::ios_base::binary);
+    if (!ad_file.is_open()) {
+        std::cerr << "Error opening file: " << a_path << std::endl;
+        return;
+    }
 
-    start = std::chrono::high_resolution_clock::now();
-    auto m = ascon80pq_encrypt(key, nonce, associated_data, plaintext);
-    end = std::chrono::high_resolution_clock::now();
-    std::cout << "Encryption time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-              << "ms\n";
+    std::string associated_data((std::istreambuf_iterator<char>(ad_file)), std::istreambuf_iterator<char>());
 
-    std::cout << "Tag (hex): ";
+    ad_file.close();
+
+    // Fetch the key
+    std::ifstream key_file(k_path, std::ios_base::binary);
+    if (!key_file.is_open()) {
+        std::cerr << "Error opening file: " << k_path << std::endl;
+        return;
+    }
+
+    ascon_key128_t key = {};
+    for (auto i = 0; i < 4; ++i) {
+        key_file.read(buffer, 4);
+        for (auto byte : buffer) {
+            key[i] = (key[i] << 8) | (uint8_t)byte;
+        }
+    }
+
+    key_file.close();
+
+    // Fetch the nonce
+    std::ifstream nonce_file(n_path, std::ios_base::binary);
+    if (!nonce_file.is_open()) {
+        std::cerr << "Error opening file: " << n_path << std::endl;
+        return;
+    }
+
+    ascon_nonce_t nonce = {};
+    for (auto i = 0; i < 4; ++i) {
+        nonce_file.read(buffer, 4);
+        for (auto byte : buffer) {
+            nonce[i] = (nonce[i] << 8) | (uint8_t)byte;
+        }
+    }
+
+    nonce_file.close();
+
+    // Invoke ascon128_encrypt()
+    auto m = ascon128_encrypt(key, nonce, associated_data, plaintext);
+
+    // get ciphertext and write it to file
+    std::remove(output_cipher_path.c_str());
+    std::ofstream enc_byte_file(output_cipher_path, std::ios_base::binary | std::ios_base::app);
+
+    for (auto i: m.ciphertext) {
+        enc_byte_file.write(to_big_endian_array(i).c_str(), sizeof(i));
+    }
+
+    enc_byte_file.close();
+
+    // get tag and write it to file
+    std::remove(output_tag_path.c_str());
+
+    std::ofstream tag_file(output_tag_path, std::ios_base::binary | std::ios_base::app);
+
     for (auto i: m.tag) {
-        std::cout << std::hex << std::setw(8) << std::setfill('0') << i;
+        tag_file.write(to_big_endian_array(i).c_str(), sizeof(i));
     }
-    fs.open(ENCRYPTED_FILE);
-    if (!fs.is_open()) return -1;
-    for (auto it = m.ciphertext.begin(); it != m.ciphertext.end(); ++it) {
-        fs << std::hex << std::setw(2) << std::setfill('0')
-            << (uint16_t) *it << ((it + 1 != m.ciphertext.end()) ? ":" : "");
+
+    tag_file.close();
+}
+
+void decrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
+             const std::string& c_path, const std::string& t_path, const std::string& output_path){
+    // buffer
+    char buffer[4];
+
+    // Get ad
+    std::ifstream ad_file(a_path, std::ios_base::binary);
+    if (!ad_file.is_open()) {
+        std::cerr << "Error opening file: " << a_path << std::endl;
+        return;
     }
-    fs.close();
-    std::cout << "\n\n" << std::resetiosflags(std::ios::hex);
 
-    fs.open(ENCRYPTED_FILE);
-    if (!fs.is_open()) return -1;
-    ascon_encrypted_t msg;
-    std::string tmp;
-    msg.tag = m.tag;
-    while (std::getline(fs, tmp, ':')) {
-        msg.ciphertext.push_back((uint8_t) std::stoul(tmp, nullptr, 16));
+    std::string associated_data((std::istreambuf_iterator<char>(ad_file)), std::istreambuf_iterator<char>());
+
+    ad_file.close();
+
+    // Fetch the key
+    std::ifstream key_file(k_path, std::ios_base::binary);
+    if (!key_file.is_open()) {
+        std::cerr << "Error opening file: " << k_path << std::endl;
+        return;
     }
-    fs.close();
 
-    start = std::chrono::high_resolution_clock::now();
-    auto decrypted_msg = ascon80pq_decrypt(key, nonce, associated_data, msg);
-    end = std::chrono::high_resolution_clock::now();
-    std::cout << "Decryption time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-              << "ms\n";
+    ascon_key128_t key = {};
+    for (auto i = 0; i < 4; ++i) {
+        key_file.read(buffer, 4);
+        for (auto byte : buffer) {
+            key[i] = (key[i] << 8) | (uint8_t)byte;
+        }
+    }
 
-    fs.open(DECRYPTED_FILE);
-    if (!fs.is_open()) return -1;
-    fs << ((decrypted_msg) ? decrypted_msg->data() : "Decryption failed");
-    fs.close();
+    key_file.close();
+
+    // Fetch the nonce
+    std::ifstream nonce_file(n_path, std::ios_base::binary);
+    if (!nonce_file.is_open()) {
+        std::cerr << "Error opening file: " << n_path << std::endl;
+        return;
+    }
+
+    ascon_nonce_t nonce = {};
+    for (auto i = 0; i < 4; ++i) {
+        nonce_file.read(buffer, 4);
+        for (auto byte : buffer) {
+            nonce[i] = (nonce[i] << 8) | (uint8_t)byte;
+        }
+    }
+
+    nonce_file.close();
+
+    // Get tag & ciphertext
+    ascon_encrypted_t encrypt_msg;
+
+    // Fetch tag
+    std::ifstream tag_file(t_path, std::ios_base::binary);
+    if (!tag_file.is_open()) {
+        std::cerr << "Error opening file: " << t_path << std::endl;
+        return;
+    }
+
+    for (auto i = 0; i < 4; ++i) {
+        tag_file.read(buffer, 4);
+        for (auto byte : buffer) {
+            encrypt_msg.tag[i / 2] = (encrypt_msg.tag[i / 2] << 8) | (uint8_t)byte;
+        }
+    }
+
+    tag_file.close();
+
+    // Fetch ciphertext
+    std::ifstream enc_byte_file(c_path, std::ios_base::binary);
+    if (!enc_byte_file.is_open()) {
+        std::cerr << "Error opening file: " << c_path << std::endl;
+        return;
+    }
+
+    encrypt_msg.ciphertext.insert(encrypt_msg.ciphertext.begin(), std::istreambuf_iterator<char>(enc_byte_file), std::istreambuf_iterator<char>());
+
+    enc_byte_file.close();
+
+    // Invoke ascon128_decrypt() to get original text and write it to file
+    std::remove(output_path.c_str());
+    std::ofstream decrypt_file(output_path, std::ios_base::binary | std::ios_base::app);
+
+    auto decrypt_m = ascon128_decrypt(key, nonce, associated_data, encrypt_msg);
+    if (decrypt_m){
+        std::cout << "Successfully decrypted data" << std::endl;
+        decrypt_file.write(decrypt_m.value().c_str(), static_cast<std::streamsize>(decrypt_m.value().length()));
+    } else {
+        std::cout << "Failed to decrypt data" << std::endl;
+    }
+
+    decrypt_file.close();
+}
+
+static inline bool check_invalid_filepath() {
+    if (optarg[0] == '-') {
+        std::cerr << "Invalid argument" << std::endl;
+        return true;
+    } else return false;
+}
+
+int main(int argc, char **argv) {
+    typedef std::pair<std::string, std::optional<std::string>> map_type;
+    std::map<std::string, std::optional<std::string>> parsed;
+
+    while (true) {
+        const auto opt = getopt_long(argc, argv, short_options, long_options, nullptr);
+
+        if (opt == -1) break;
+
+        switch (opt)
+        {
+            case 'e':
+                parsed.insert(map_type("enc", std::nullopt));
+                break;
+            case 'd':
+                parsed.insert(map_type("dec", std::nullopt));
+                break;
+            case 'k':
+                if (check_invalid_filepath()) return 1;
+                parsed.insert(map_type("key", optarg));
+                break;
+            case 'n':
+                if (check_invalid_filepath()) return 1;
+                parsed.insert(map_type("nonce", optarg));
+                break;
+            case 'a':
+                if (check_invalid_filepath()) return 1;
+                parsed.insert(map_type("ad", optarg));
+                break;
+            case 'i':
+                if (check_invalid_filepath()) return 1;
+                parsed.insert(map_type("in", optarg));
+                break;
+            case 'o':
+                if (check_invalid_filepath()) return 1;
+                parsed.insert(map_type("out", optarg));
+                break;
+            case 't':
+                if (check_invalid_filepath()) return 1;
+                parsed.insert(map_type("tag", optarg));
+                break;
+
+            case 'h':
+                print_help();
+                return 0;
+
+            default:
+                return 1;
+        }
+    }
+
+    if (parsed.empty()) {
+        print_help();
+        return 0;
+    }
+
+    std::string key_path;
+    if (parsed.count("key")) {
+        key_path = parsed["key"].value();
+    } else {
+        std::cerr << "No key file specified" << std::endl;
+        return 1;
+    }
+
+    std::string nonce_path;
+    if (parsed.count("nonce")) {
+        nonce_path = parsed["nonce"].value();
+    } else {
+        std::cerr << "No nonce file specified" << std::endl;
+        return 1;
+    }
+
+    std::string ad_path;
+    if (parsed.count("ad")) {
+        ad_path = parsed["ad"].value();
+    } else {
+        std::cerr << "No AD file specified" << std::endl;
+        return 1;
+    }
+
+    std::string input_path;
+    if (parsed.count("in")) {
+        input_path = parsed["in"].value();
+    } else {
+        std::cerr << "No input file specified" << std::endl;
+        return 1;
+    }
+
+    std::string output_path;
+    if (parsed.count("out")) {
+        output_path = parsed["out"].value();
+    } else {
+        std::cerr << "No output file specified" << std::endl;
+        return 1;
+    }
+
+    std::string tag_path;
+    if (parsed.count("tag")) {
+        tag_path = parsed["tag"].value();
+    } else {
+        std::cerr << "No tag file specified" << std::endl;
+        return 1;
+    }
+
+    if (parsed.count("enc")) {
+        encrypt(key_path, nonce_path, ad_path, input_path, output_path, tag_path);
+    } else if (parsed.count("dec")) {
+        decrypt(key_path, nonce_path, ad_path, input_path, tag_path, output_path);
+    } else {
+        std::cerr << "No action specified" << std::endl;
+        return 1;
+    }
 
     return 0;
 }
 
-#endif
-
-
-#ifdef DEV
-
-int main() {
-    std::fstream fs;
-    decltype(std::chrono::high_resolution_clock::now()) start, end;
-
-    fs.open(UNENCRYPTED_FILE);
-    if (!fs.is_open()) return -1;
-    std::string plaintext((std::istreambuf_iterator<char>(fs)), std::istreambuf_iterator<char>());
-    fs.close();
-
-    start = std::chrono::high_resolution_clock::now();
-    ascon_plaintext_to_block64(plaintext);
-    end = std::chrono::high_resolution_clock::now();
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms";
-    return 0;
-}
-
-#endif
-
-
-#ifdef TEST
-
-int main() {
-    ascon_key128_t key = {0, 0, 0, 0};
-    ascon_nonce_t nonce = {0, 0, 0, 0};
-
-    auto i = ascon128_encrypt(key, nonce, "", "AAAAAAA");
-
-    for (auto byte : i.ciphertext) {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (uint32_t)byte;
-    }
-    std::cout << std::endl << "Tag: " << std::hex << std::setw(8) << std::setfill('0') << i.tag[0] << i.tag[1] << std::endl;
-}
-
-#endif
