@@ -8,20 +8,20 @@
 
 static const char* short_options = "edsEDSk:n:a:i:t:o:h";
 static struct option long_options[] = {
-        {"encrypt",         no_argument,        nullptr,'e'},
-        {"decrypt",         no_argument,        nullptr,'d'},
-        {"hash",            no_argument,        nullptr,'s'},
-        {"encrypt-a",       no_argument,        nullptr,'E'},
-        {"decrypt-a",       no_argument,        nullptr,'D'},
-        {"hash-a",          no_argument,        nullptr,'S'},
-        {"key",             required_argument,  nullptr,'k'},
-        {"nonce",           required_argument,  nullptr,'n'},
-        {"associated-data", required_argument,  nullptr,'a'},
-        {"input",           required_argument,  nullptr,'i'},
-        {"output",          required_argument,  nullptr,'o'},
-        {"tag",             required_argument,  nullptr,'t'},
-        {"help",            no_argument,        nullptr,'h'},
-        {nullptr,           0,                  nullptr,0}
+        {"encrypt",         no_argument,        nullptr, 'e'},
+        {"decrypt",         no_argument,        nullptr, 'd'},
+        {"hash",            no_argument,        nullptr, 's'},
+        {"encrypt-a",       no_argument,        nullptr, 'E'},
+        {"decrypt-a",       no_argument,        nullptr, 'D'},
+        {"hash-a",          no_argument,        nullptr, 'S'},
+        {"key",             required_argument,  nullptr, 'k'},
+        {"nonce",           required_argument,  nullptr, 'n'},
+        {"associated-data", required_argument,  nullptr, 'a'},
+        {"input",           required_argument,  nullptr, 'i'},
+        {"output",          required_argument,  nullptr, 'o'},
+        {"tag",             required_argument,  nullptr, 't'},
+        {"help",            no_argument,        nullptr, 'h'},
+        {nullptr,           0,                  nullptr, 0}
 };
 
 
@@ -138,6 +138,9 @@ void encrypt(const std::string& k_path, const std::string& n_path, const std::st
     }
 
     tag_file.close();
+
+    // Return
+    std::cout << "Done" << std::endl;
 }
 
 void decrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
@@ -261,6 +264,9 @@ void hash(const std::string& i_path, const std::string& o_path, bool variant) {
     }
 
     out_file.close();
+
+    // Return
+    std::cout << "Done" << std::endl;
 }
 
 static inline bool check_invalid_filepath() {
@@ -403,7 +409,8 @@ int main(int argc, char** argv) {
 
         if (enc_mode) {
             encrypt(key_path, nonce_path, ad_path, input_path, output_path, tag_path, variant);
-        } else if (dec_mode) {
+        }
+        if (dec_mode) {
             decrypt(key_path, nonce_path, ad_path, input_path, tag_path, output_path, variant);
         }
     }
