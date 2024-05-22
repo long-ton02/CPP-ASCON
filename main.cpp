@@ -6,6 +6,15 @@
 #include <map>
 #include "ascon.h"
 
+typedef std::pair<std::string, std::optional<std::string>> map_pair;
+
+static inline void check_invalid_filepath() {
+    if (optarg[0] == '-') {
+        std::cerr << "Invalid argument" << std::endl;
+        exit(1);
+    }
+}
+
 static const char* short_options = "edsEDSk:n:a:i:t:o:h";
 static struct option long_options[] = {
         {"encrypt",         no_argument,        nullptr, 'e'},
@@ -24,8 +33,7 @@ static struct option long_options[] = {
         {nullptr,           0,                  nullptr, 0}
 };
 
-
-void print_help() {
+static inline void print_help() {
     std::cout << "Usage:    ASCON\r\n"
                  "          -e|--encrypt|-d|--decrypt|-E|--encrypt-a|-D|--decrypt-a\r\n"
                  "          -k|--key                <key_path>\r\n"
@@ -41,7 +49,68 @@ void print_help() {
                  "          -o|--output             <output_path>\r\n";
 }
 
+std::map<std::string, std::optional<std::string>> parse_opt(int argc, char** argv, bool &variant) {
+    std::map<std::string, std::optional<std::string>> ret;
+    while (true) {
+        const auto opt = getopt_long(argc, argv, short_options, long_options, nullptr);
+
+        if (opt == -1) break;
+
+        switch (opt)
+        {
+            case 'e':
+            case 'E':
+                ret.insert(map_pair("enc", std::nullopt));
+                variant = opt == 'E';
+                break;
+            case 'd':
+            case 'D':
+                ret.insert(map_pair("dec", std::nullopt));
+                variant = opt == 'D';
+                break;
+            case 's':
+            case 'S':
+                ret.insert(map_pair("hash", std::nullopt));
+                variant = opt == 'S';
+                break;
+            case 'k':
+                check_invalid_filepath();
+                ret.insert(map_pair("key", optarg));
+                break;
+            case 'n':
+                check_invalid_filepath();
+                ret.insert(map_pair("nonce", optarg));
+                break;
+            case 'a':
+                check_invalid_filepath();
+                ret.insert(map_pair("ad", optarg));
+                break;
+            case 'i':
+                check_invalid_filepath();
+                ret.insert(map_pair("in", optarg));
+                break;
+            case 'o':
+                check_invalid_filepath();
+                ret.insert(map_pair("out", optarg));
+                break;
+            case 't':
+                check_invalid_filepath();
+                ret.insert(map_pair("tag", optarg));
+                break;
+
+            case 'h':
+                print_help();
+                exit(0);
+
+            default:
+                exit(1);
+        }
+    }
+    return ret;
+}
+
 template <class T>
+static
 typename std::enable_if<std::is_integral<T>::value,std::string>::type
 to_big_endian_array(T n){
     std::string ret;
@@ -52,9 +121,9 @@ to_big_endian_array(T n){
     return ret;
 }
 
-void encrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
-             const std::string& p_path, const std::string& output_cipher_path, const std::string& output_tag_path,
-             bool variant){
+static void encrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
+                    const std::string& p_path, const std::string& output_cipher_path, const std::string& output_tag_path,
+                    bool variant){
     // buffer
     char buffer[4];
 
@@ -62,7 +131,7 @@ void encrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream in_file(p_path, std::ios_base::binary);
     if (!in_file.is_open()) {
         std::cerr << "Error opening file: " << p_path << std::endl;
-        return;
+        exit(1);
     }
 
     std::string plaintext((std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>());
@@ -73,7 +142,7 @@ void encrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream ad_file(a_path, std::ios_base::binary);
     if (!ad_file.is_open()) {
         std::cerr << "Error opening file: " << a_path << std::endl;
-        return;
+        exit(1);
     }
 
     std::string associated_data((std::istreambuf_iterator<char>(ad_file)), std::istreambuf_iterator<char>());
@@ -84,7 +153,7 @@ void encrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream key_file(k_path, std::ios_base::binary);
     if (!key_file.is_open()) {
         std::cerr << "Error opening file: " << k_path << std::endl;
-        return;
+        exit(1);
     }
 
     ascon_key128_t key = {};
@@ -101,7 +170,7 @@ void encrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream nonce_file(n_path, std::ios_base::binary);
     if (!nonce_file.is_open()) {
         std::cerr << "Error opening file: " << n_path << std::endl;
-        return;
+        exit(1);
     }
 
     ascon_nonce_t nonce = {};
@@ -143,9 +212,9 @@ void encrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::cout << "Done" << std::endl;
 }
 
-void decrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
-             const std::string& c_path, const std::string& t_path, const std::string& output_path,
-             bool variant){
+static void decrypt(const std::string& k_path, const std::string& n_path, const std::string& a_path,
+                    const std::string& c_path, const std::string& t_path, const std::string& output_path,
+                    bool variant){
     // buffer
     char buffer[4];
 
@@ -153,7 +222,7 @@ void decrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream ad_file(a_path, std::ios_base::binary);
     if (!ad_file.is_open()) {
         std::cerr << "Error opening file: " << a_path << std::endl;
-        return;
+        exit(1);
     }
 
     std::string associated_data((std::istreambuf_iterator<char>(ad_file)), std::istreambuf_iterator<char>());
@@ -164,7 +233,7 @@ void decrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream key_file(k_path, std::ios_base::binary);
     if (!key_file.is_open()) {
         std::cerr << "Error opening file: " << k_path << std::endl;
-        return;
+        exit(1);
     }
 
     ascon_key128_t key = {};
@@ -181,7 +250,7 @@ void decrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream nonce_file(n_path, std::ios_base::binary);
     if (!nonce_file.is_open()) {
         std::cerr << "Error opening file: " << n_path << std::endl;
-        return;
+        exit(1);
     }
 
     ascon_nonce_t nonce = {};
@@ -201,7 +270,7 @@ void decrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream tag_file(t_path, std::ios_base::binary);
     if (!tag_file.is_open()) {
         std::cerr << "Error opening file: " << t_path << std::endl;
-        return;
+        exit(1);
     }
 
     for (auto i = 0; i < 4; ++i) {
@@ -217,7 +286,7 @@ void decrypt(const std::string& k_path, const std::string& n_path, const std::st
     std::ifstream enc_byte_file(c_path, std::ios_base::binary);
     if (!enc_byte_file.is_open()) {
         std::cerr << "Error opening file: " << c_path << std::endl;
-        return;
+        exit(1);
     }
 
     encrypt_msg.ciphertext.insert(encrypt_msg.ciphertext.begin(), std::istreambuf_iterator<char>(enc_byte_file), std::istreambuf_iterator<char>());
@@ -240,12 +309,12 @@ void decrypt(const std::string& k_path, const std::string& n_path, const std::st
     decrypt_file.close();
 }
 
-void hash(const std::string& i_path, const std::string& o_path, bool variant) {
+static void hash(const std::string& i_path, const std::string& o_path, bool variant) {
     // Get input
     std::ifstream in_file(i_path, std::ios_base::binary);
     if (!in_file.is_open()) {
         std::cerr << "Error opening file: " << i_path << std::endl;
-        return;
+        exit(1);
     }
 
     std::string input((std::istreambuf_iterator<char>(in_file)), std::istreambuf_iterator<char>());
@@ -269,76 +338,10 @@ void hash(const std::string& i_path, const std::string& o_path, bool variant) {
     std::cout << "Done" << std::endl;
 }
 
-static inline bool check_invalid_filepath() {
-    if (optarg[0] == '-') {
-        std::cerr << "Invalid argument" << std::endl;
-        return true;
-    } else return false;
-}
-
 int main(int argc, char** argv) {
-    typedef std::pair<std::string, std::optional<std::string>> map_type;
+    bool enc_mode, dec_mode, hash_mode, variant;
 
-    std::map<std::string, std::optional<std::string>> parsed;
-    bool variant = false;
-    bool enc_mode, dec_mode, hash_mode;
-
-    while (true) {
-        const auto opt = getopt_long(argc, argv, short_options, long_options, nullptr);
-
-        if (opt == -1) break;
-
-        switch (opt)
-        {
-            case 'e':
-            case 'E':
-                parsed.insert(map_type("enc", std::nullopt));
-                variant = opt == 'E';
-                break;
-            case 'd':
-            case 'D':
-                parsed.insert(map_type("dec", std::nullopt));
-                variant = opt == 'D';
-                break;
-            case 's':
-            case 'S':
-                parsed.insert(map_type("hash", std::nullopt));
-                variant = opt == 'S';
-                break;
-            case 'k':
-                if (check_invalid_filepath()) return 1;
-                parsed.insert(map_type("key", optarg));
-                break;
-            case 'n':
-                if (check_invalid_filepath()) return 1;
-                parsed.insert(map_type("nonce", optarg));
-                break;
-            case 'a':
-                if (check_invalid_filepath()) return 1;
-                parsed.insert(map_type("ad", optarg));
-                break;
-            case 'i':
-                if (check_invalid_filepath()) return 1;
-                parsed.insert(map_type("in", optarg));
-                break;
-            case 'o':
-                if (check_invalid_filepath()) return 1;
-                parsed.insert(map_type("out", optarg));
-                break;
-            case 't':
-                if (check_invalid_filepath()) return 1;
-                parsed.insert(map_type("tag", optarg));
-                break;
-
-            case 'h':
-                print_help();
-                return 0;
-
-            default:
-                return 1;
-        }
-    }
-
+    auto parsed = parse_opt(argc, argv, variant);
     if (parsed.empty()) {
         print_help();
         return 0;
